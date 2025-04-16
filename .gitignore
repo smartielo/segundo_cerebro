@@ -1,0 +1,25 @@
+# Ambiente Virtual
+venv/
+
+# Arquivos sensíveis
+.env
+*.env
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Configurações de IDE
+.vscode/
+.idea/
+
+# Arquivos temporários e logs
+*.log
+*.tmp
+*.db  # SQLite (se for usar)
+
+# PyInstaller
+dist/
+build/
+*.spec
