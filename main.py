@@ -1,13 +1,14 @@
-# main.py
 from modules.clima import get_weather
 
 if __name__ == "__main__":
     cidade = input("Digite a cidade: ")
-    try:
-        dados = get_weather(cidade)
-        if dados.get("cod") != 200:  # Se a API retornar erro
-            print(f"Erro: {dados.get('message', 'Cidade não encontrada')}")
-        else:
-            print(f"Temperatura: {dados['main']['temp']}°C")
-    except Exception as e:
-        print(f"Erro ao acessar a API: {e}")
+    dados = get_weather(cidade)
+    
+    if 'error' in dados:
+        print(f"❌ {dados['error']}")
+        if "Invalid API key" in dados['error']:
+            print("👉 Solução: Verifique sua API key no arquivo .env")
+    else:
+        print(f"🌤 Clima em {dados['cidade']}:")
+        print(f"🌡 Temperatura: {dados['temperatura']}°C")
+        print(f"📌 Condição: {dados['descricao'].capitalize()}")
