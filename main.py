@@ -6,6 +6,7 @@ import mysql.connector
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+from modules.moedas import CurrencyConverter
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -24,6 +25,9 @@ class SecondBrainApp:
         # Conexão com o banco de dados
         self.db_connection = self.create_db_connection()
         
+        self.currency_converter = CurrencyConverter()  # Esta linha deve existir
+        self.setup_ui()
+
         # Interface principal
         self.setup_ui()
         
@@ -354,76 +358,165 @@ class SecondBrainApp:
 
     # ================== ABA MOEDAS ==================
     def setup_moedas_tab(self):
+
         """Configura a aba de conversão de moedas"""
         tab = self.tabview.tab("Moedas")
-        
-        # Frame de conversão
+    
+    # Frame de conversão
         conversion_frame = ctk.CTkFrame(tab)
-        conversion_frame.pack(pady=20, padx=50, fill="x")
-        
-        # Entrada de valor
+        conversion_frame.pack(pady=20, padx=20, fill="x")
+    
+    # Entrada de valor
         ctk.CTkLabel(conversion_frame, text="Valor:").pack(side="left")
         self.amount_entry = ctk.CTkEntry(conversion_frame, width=100)
         self.amount_entry.pack(side="left", padx=5)
-        
-        # Moeda de origem
+    
+    # Moeda de origem
         self.from_currency = ctk.CTkComboBox(
-            conversion_frame,
-            values=["USD", "EUR", "GBP", "BRL", "JPY"],
-            width=80
-        )
+        conversion_frame,
+        values=["USD", "EUR", "GBP", "BRL", "JPY", "CAD", "AUD", "CHF"],
+        width=70
+    )
+        self.from_currency.set("USD")
         self.from_currency.pack(side="left", padx=5)
-        
-        # Para
-        ctk.CTkLabel(conversion_frame, text="para").pack(side="left", padx=5)
-        
-        # Moeda de destino
+    
+    # Para
+        ctk.CTkLabel(conversion_frame, text="→").pack(side="left", padx=5)
+    
+    # Moeda de destino
         self.to_currency = ctk.CTkComboBox(
-            conversion_frame,
-            values=["USD", "EUR", "GBP", "BRL", "JPY"],
-            width=80
-        )
+        conversion_frame,
+        values=["USD", "EUR", "GBP", "BRL", "JPY", "CAD", "AUD", "CHF"],
+        width=70
+    )
+        self.to_currency.set("BRL")
         self.to_currency.pack(side="left", padx=5)
-        
-        # Botão de conversão
+    
+    # Botão de conversão
         ctk.CTkButton(
-            conversion_frame,
-            text="Converter",
-            command=self.convert_currency
-        ).pack(side="left", padx=10)
-        
-        # Resultado
+        conversion_frame,
+        text="Converter",
+        command=self.convert_currency).pack(side="left", padx=10)
+    
+    # Resultado
         self.conversion_result = ctk.CTkLabel(
-            tab,
-            text="Resultado aparecerá aqui",
-            font=("Arial", 16)
-        )
-        self.conversion_result.pack(pady=20)
-        
-        # Taxas de câmbio
-        self.exchange_rates = ctk.CTkLabel(
-            tab,
-            text="Taxas de câmbio serão exibidas aqui",
-            font=("Arial", 12)
-        )
-        self.exchange_rates.pack(pady=10)
+        tab,
+        text="Digite um valor e selecione as moedas",
+        font=("Arial", 16, "bold")
+    )
+        self.conversion_result.pack(pady=10)
+    
+    # Frame do histórico
+        history_frame = ctk.CTkFrame(tab)
+        history_frame.pack(fill="both", expand=True, padx=20, pady=10)
+    
+        ctk.CTkLabel(
+        history_frame,
+        text="Últimas Conversões",
+        font=("Arial", 14, "bold")
+        ).pack(pady=5)
+    
+        self.history_table = ctk.CTkScrollableFrame(history_frame, height=150)
+        self.history_table.pack(fill="both", expand=True)
+    
+    # Carrega histórico inicial
+        self.load_conversion_history()
 
-    def convert_currency(self):
-        """Realiza a conversão de moedas"""
-        amount = self.amount_entry.get()
+def convert_currency(self):
+    """Realiza a conversão de moedas"""
+    try:
+        # Obtém os valores da interface
+        amount = float(self.amount_entry.get())
         from_curr = self.from_currency.get()
         to_curr = self.to_currency.get()
         
-        if not amount or not from_curr or not to_curr:
-            return
+        if amount <= 0:
+            raise ValueError("O valor deve ser positivo")
+            
+        # Realiza a conversão
+        result = self.currency_converter.convert_currency(amount, from_curr, to_curr)
         
-        # Simulação - substitua pela API real
-        conversion_rate = 5.20  # Exemplo: 1 USD = 5.20 BRL
-        converted_value = float(amount) * conversion_rate
-        
+        if "error" in result:
+            self.conversion_result.configure(
+                text=f"Erro: {result['error']}",
+                text_color="red"
+            )
+        else:
+            # Formata o resultado
+            formatted_result = (
+                f"{result['original_amount']:.2f} {result['from_currency']} = "
+                f"{result['converted_amount']:.2f} {result['to_currency']}\n"
+                f"Taxa: 1 {result['from_currency']} = {result['rate']:.6f} {result['to_currency']}"
+            )
+            self.conversion_result.configure(
+                text=formatted_result,
+                text_color="white"
+            )
+            
+    except ValueError as e:
         self.conversion_result.configure(
-            text=f"{amount} {from_curr} = {converted_value:.2f} {to_curr}"
+            text=f"Erro: {str(e)}",
+            text_color="red"
         )
+    except Exception as e:
+        self.conversion_result.configure(
+            text=f"Erro inesperado: {str(e)}",
+            text_color="red"
+        )
+
+def load_conversion_history(self):
+    """Carrega o histórico de conversões"""
+    # Limpa a tabela atual
+    for widget in self.history_table.winfo_children():
+        widget.destroy()
+    
+    # Obtém os dados
+    history = self.currency_converter.get_conversion_history(limit=5)
+    
+    if not history:
+        ctk.CTkLabel(
+            self.history_table,
+            text="Nenhuma conversão registrada ainda",
+            text_color="gray"
+        ).pack()
+        return
+    
+    # Cabeçalho
+    header_frame = ctk.CTkFrame(self.history_table)
+    header_frame.pack(fill="x")
+    
+    headers = ["Data", "De", "Para", "Valor", "Resultado"]
+    for i, header in enumerate(headers):
+        ctk.CTkLabel(
+            header_frame,
+            text=header,
+            font=("Arial", 12, "bold"),
+            width=100 if i > 0 else 120
+        ).pack(side="left", padx=2)
+    
+    # Dados
+    for item in history:
+        row_frame = ctk.CTkFrame(self.history_table)
+        row_frame.pack(fill="x", pady=1)
+        
+        # Formata a data
+        conv_date = item['data_conversao'].strftime("%d/%m %H:%M")
+        
+        # Adiciona as colunas
+        columns = [
+            conv_date,
+            item['moeda_origem'],
+            item['moeda_destino'],
+            f"{item['valor_origem']:.2f}",
+            f"{item['valor_convertido']:.2f}"
+        ]
+        
+        for i, col in enumerate(columns):
+            ctk.CTkLabel(
+                row_frame,
+                text=col,
+                width=100 if i > 0 else 120
+            ).pack(side="left", padx=2)
 
     # ================== FUNÇÕES GERAIS ==================
     def update_status_bar(self):
